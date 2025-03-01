@@ -23,6 +23,7 @@ func Run(cfg *config.Config) error {
 	taskHandler := handlers.NewTaskHandler(storage)
 
 	app.Post("/tasks", taskHandler.CreateTask)
+	app.Get("/tasks", taskHandler.GetTasks)
 
 	log.Printf("Starting server on :%s", cfg.Port)
 	return app.Listen(":" + cfg.Port)

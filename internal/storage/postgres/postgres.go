@@ -69,3 +69,25 @@ func (s *Storage) CreateTask(ctx context.Context, task *model.Task) error {
 
 	return s.db.QueryRow(ctx, query, task.Title, task.Description, task.Status).Scan(&task.ID, &task.CreatedAt, &task.UpdatedAt)
 }
+
+func (s *Storage) GetTasks(ctx context.Context) ([]model.Task, error) {
+	query := `SELECT id, title, description, status, created_at, updated_at FROM tasks`
+	rows, err := s.db.Query(ctx, query)
+	if err != nil {
+		log.Printf("Failed to fetch tasks: %v", err)
+		return nil, err
+	}
+	defer rows.Close()
+
+	var tasks []model.Task
+	for rows.Next() {
+		var task model.Task
+		if err := rows.Scan(&task.ID, &task.Title, &task.Description, &task.Status, &task.CreatedAt, &task.UpdatedAt); err != nil {
+			log.Printf("Failed to scan task: %v", err)
+			return nil, err
+		}
+		tasks = append(tasks, task)
+	}
+
+	return tasks, nil
+}

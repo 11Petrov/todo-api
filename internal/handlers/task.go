@@ -11,6 +11,7 @@ import (
 
 type TaskStore interface {
 	CreateTask(ctx context.Context, task *model.Task) error
+	GetTasks(ctx context.Context) ([]model.Task, error)
 }
 
 type TaskHandler struct {
@@ -32,4 +33,13 @@ func (h *TaskHandler) CreateTask(c fiber.Ctx) error {
 	}
 
 	return c.Status(http.StatusCreated).JSON(task)
+}
+
+func (h *TaskHandler) GetTasks(c fiber.Ctx) error {
+	tasks, err := h.store.GetTasks(c.Context())
+	if err != nil {
+		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to fetch tasks"})
+	}
+
+	return c.JSON(tasks)
 }
