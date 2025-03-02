@@ -114,3 +114,14 @@ func (s *Storage) UpdateTask(ctx context.Context, id string, task *model.Task) e
 
 	return nil
 }
+
+func (s *Storage) DeleteTask(ctx context.Context, id string) error {
+	query := `DELETE FROM tasks WHERE id = $1`
+	_, err := s.db.Exec(ctx, query, id)
+	if err != nil {
+		log.Printf("Failed to delete task: %v", err)
+		return err
+	}
+
+	return nil
+}

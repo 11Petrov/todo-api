@@ -13,6 +13,7 @@ type TaskStore interface {
 	CreateTask(ctx context.Context, task *model.Task) error
 	GetTasks(ctx context.Context) ([]model.Task, error)
 	UpdateTask(ctx context.Context, id string, task *model.Task) error
+	DeleteTask(ctx context.Context, id string) error
 }
 
 type TaskHandler struct {
@@ -58,4 +59,15 @@ func (h *TaskHandler) UpdateTask(c fiber.Ctx) error {
 	}
 
 	return c.JSON(task)
+}
+
+func (h *TaskHandler) DeleteTask(c fiber.Ctx) error {
+
+	id := c.Params("id")
+
+	if err := h.store.DeleteTask(c.Context(), id); err != nil {
+		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to delete task"})
+	}
+
+	return c.SendStatus(http.StatusNoContent)
 }
