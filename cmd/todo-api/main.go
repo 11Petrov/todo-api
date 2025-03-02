@@ -1,7 +1,7 @@
 package main
 
 import (
-	"log"
+	"log/slog"
 
 	"todo-api/internal/app"
 	"todo-api/internal/config"
@@ -10,10 +10,10 @@ import (
 func main() {
 	cfg, err := config.LoadConfig()
 	if err != nil {
-		log.Fatalf("Failed to load config: %v", err)
+		slog.Error("Failed to load config", "error", err)
 	}
 
 	if err := app.Run(cfg); err != nil {
-		log.Fatalf("Failed to start application: %v", err)
+		slog.Error("Failed to start application", "error", err)
 	}
 }

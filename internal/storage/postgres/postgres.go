@@ -2,10 +2,9 @@ package postgres
 
 import (
 	"context"
-	"log"
+	"fmt"
 
 	"todo-api/internal/model"
-	"todo-api/internal/storage"
 
 	"github.com/golang-migrate/migrate/v4"
 	_ "github.com/golang-migrate/migrate/v4/database/postgres"
@@ -18,108 +17,127 @@ type Storage struct {
 }
 
 func New(connStr string) (*Storage, error) {
+	const op = "storage.postgres.New"
+
 	pool, err := pgxpool.New(context.Background(), connStr)
 	if err != nil {
-		log.Printf("Unable to create connection pool: %v", err)
-		return nil, storage.ErrDBConnection
+		return nil, fmt.Errorf("%s: %w", op, err)
 	}
 
 	if err := pool.Ping(context.Background()); err != nil {
-		log.Printf("Unable to ping database: %v", err)
-		return nil, storage.ErrDBConnection
+		return nil, fmt.Errorf("%s: %w", op, err)
 	}
-
-	log.Println("Successfully connected to the database")
 
 	if err := RunMigrations(connStr); err != nil {
-		log.Printf("Failed to run migrations: %v", err)
-		return nil, err
+		return nil, fmt.Errorf("%s: %w", op, err)
 	}
+
 	return &Storage{pool: pool}, nil
+}
+
+func RunMigrations(connStr string) error {
+	const op = "storage.postgres.RunMigrations"
+
+	m, err := migrate.New(
+		"file://migrations",
+		connStr,
+	)
+	if err != nil {
+		return fmt.Errorf("%s: %w", op, err)
+	}
+	defer m.Close()
+
+	if err := m.Up(); err != nil && err != migrate.ErrNoChange {
+		return fmt.Errorf("%s: %w", op, err)
+	}
+
+	return nil
 }
 
 func (s *Storage) Close() {
 	s.pool.Close()
 }
 
-func RunMigrations(connStr string) error {
-	m, err := migrate.New(
-		"file://migrations",
-		connStr,
-	)
-	if err != nil {
-		return err
-	}
-	defer m.Close()
-
-	if err := m.Up(); err != nil && err != migrate.ErrNoChange {
-		return err
-	}
-
-	log.Println("Migrations applied successfully")
-	return nil
-}
-
 func (s *Storage) CreateTask(ctx context.Context, task *model.Task) error {
+	const op = "storage.postgres.CreateTask"
+
 	query := `
 	INSERT INTO tasks (title, description, status)
 	VALUES ($1, $2, $3)
 	RETURNING id, created_at, updated_at`
 
-	return s.pool.QueryRow(ctx, query, task.Title, task.Description, task.Status).Scan(&task.ID, &task.CreatedAt, &task.UpdatedAt)
+	if err := s.pool.QueryRow(ctx, query, task.Title, task.Description, task.Status).Scan(
+		&task.ID, &task.CreatedAt, &task.UpdatedAt,
+	); err != nil {
+		return fmt.Errorf("%s: %w", op, err)
+	}
+
+	return nil
 }
 
 func (s *Storage) GetTasks(ctx context.Context) ([]model.Task, error) {
+	const op = "storage.postgres.GetTasks"
+
 	query := `SELECT id, title, description, status, created_at, updated_at FROM tasks`
+
 	rows, err := s.pool.Query(ctx, query)
 	if err != nil {
-		log.Printf("Failed to fetch tasks: %v", err)
-		return nil, err
+		return nil, fmt.Errorf("%s: %w", op, err)
 	}
 	defer rows.Close()
 
 	var tasks []model.Task
 	for rows.Next() {
 		var task model.Task
-		if err := rows.Scan(&task.ID, &task.Title, &task.Description, &task.Status, &task.CreatedAt, &task.UpdatedAt); err != nil {
-			log.Printf("Failed to scan task: %v", err)
-			return nil, err
+		if err := rows.Scan(
+			&task.ID, &task.Title, &task.Description, &task.Status, &task.CreatedAt, &task.UpdatedAt,
+		); err != nil {
+			return nil, fmt.Errorf("%s: %w", op, err)
 		}
 		tasks = append(tasks, task)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("%s: %w", op, err)
 	}
 
 	return tasks, nil
 }
 
 func (s *Storage) UpdateTask(ctx context.Context, id string, task *model.Task) error {
+	const op = "storage.postgres.UpdateTask"
+
 	query := `
 	UPDATE tasks
 	SET title = $1, description = $2, status = $3, updated_at = now()
 	WHERE id = $4
 	RETURNING id, title, description, status, created_at, updated_at`
 
-	err := s.pool.QueryRow(ctx, query, task.Title, task.Description, task.Status, id).Scan(
+	if err := s.pool.QueryRow(ctx, query, task.Title, task.Description, task.Status, id).Scan(
 		&task.ID,
 		&task.Title,
 		&task.Description,
 		&task.Status,
 		&task.CreatedAt,
 		&task.UpdatedAt,
-	)
-	if err != nil {
-		log.Printf("Failed to update task: %v", err)
-		return err
+	); err != nil {
+		return fmt.Errorf("%s: %w", op, err)
 	}
 
 	return nil
 }
 
 func (s *Storage) DeleteTask(ctx context.Context, id string) error {
+	const op = "storage.postgres.DeleteTask"
+
 	query := `DELETE FROM tasks WHERE id = $1`
-	_, err := s.pool.Exec(ctx, query, id)
+	result, err := s.pool.Exec(ctx, query, id)
 	if err != nil {
-		log.Printf("Failed to delete task: %v", err)
-		return err
+		return fmt.Errorf("%s: %w", op, err)
+	}
+
+	if result.RowsAffected() == 0 {
+		return fmt.Errorf("%s: task not found", op)
 	}
 
 	return nil

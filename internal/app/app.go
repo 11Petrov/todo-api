@@ -1,7 +1,7 @@
 package app
 
 import (
-	"log"
+	"log/slog"
 
 	"todo-api/internal/config"
 	"todo-api/internal/handlers"
@@ -13,7 +13,7 @@ import (
 func Run(cfg *config.Config) error {
 	storage, err := postgres.New(cfg.DBConnStr)
 	if err != nil {
-		log.Printf("Unable to create storage: %v", err)
+		slog.Error("Unable to create storage", "error", err)
 		return err
 	}
 	defer storage.Close()
@@ -27,6 +27,6 @@ func Run(cfg *config.Config) error {
 	app.Put("/tasks/:id", taskHandler.UpdateTask)
 	app.Delete("/tasks/:id", taskHandler.DeleteTask)
 
-	log.Printf("Starting server on :%s", cfg.Port)
+	slog.Info("Starting server", "port", cfg.Port)
 	return app.Listen(":" + cfg.Port)
 }
