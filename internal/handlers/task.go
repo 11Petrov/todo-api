@@ -12,6 +12,7 @@ import (
 type TaskStore interface {
 	CreateTask(ctx context.Context, task *model.Task) error
 	GetTasks(ctx context.Context) ([]model.Task, error)
+	UpdateTask(ctx context.Context, id string, task *model.Task) error
 }
 
 type TaskHandler struct {
@@ -42,4 +43,19 @@ func (h *TaskHandler) GetTasks(c fiber.Ctx) error {
 	}
 
 	return c.JSON(tasks)
+}
+
+func (h *TaskHandler) UpdateTask(c fiber.Ctx) error {
+	id := c.Params("id")
+
+	var task model.Task
+	if err := c.Bind().Body(&task); err != nil {
+		return c.Status(http.StatusBadRequest).JSON(fiber.Map{"error": "Invalid request payload"})
+	}
+
+	if err := h.store.UpdateTask(c.Context(), id, &task); err != nil {
+		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to update task"})
+	}
+
+	return c.JSON(task)
 }

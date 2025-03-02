@@ -91,3 +91,26 @@ func (s *Storage) GetTasks(ctx context.Context) ([]model.Task, error) {
 
 	return tasks, nil
 }
+
+func (s *Storage) UpdateTask(ctx context.Context, id string, task *model.Task) error {
+	query := `
+	UPDATE tasks
+	SET title = $1, description = $2, status = $3, updated_at = now()
+	WHERE id = $4
+	RETURNING id, title, description, status, created_at, updated_at`
+
+	err := s.db.QueryRow(ctx, query, task.Title, task.Description, task.Status, id).Scan(
+		&task.ID,
+		&task.Title,
+		&task.Description,
+		&task.Status,
+		&task.CreatedAt,
+		&task.UpdatedAt,
+	)
+	if err != nil {
+		log.Printf("Failed to update task: %v", err)
+		return err
+	}
+
+	return nil
+}

@@ -24,6 +24,7 @@ func Run(cfg *config.Config) error {
 
 	app.Post("/tasks", taskHandler.CreateTask)
 	app.Get("/tasks", taskHandler.GetTasks)
+	app.Put("/tasks/:id", taskHandler.UpdateTask)
 
 	log.Printf("Starting server on :%s", cfg.Port)
 	return app.Listen(":" + cfg.Port)
